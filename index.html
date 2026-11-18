@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>스도쿠 · AI Edu</title>
+  <meta name="description" content="2×2부터 12×12까지 단계별로 푸는 스도쿠. 단계별 힌트와 이어하기를 지원합니다.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <button class="brand" id="homeBtn" type="button" aria-label="처음 화면">스도쿠</button>
+    <div class="profile">
+      <label for="profileSel">학생</label>
+      <select id="profileSel"></select>
+      <button type="button" id="addProfile" class="ghost small">+ 새 학생</button>
+    </div>
+  </header>
+
+  <p id="storageWarn" class="warn" hidden>이 브라우저에서는 저장할 수 없어요. 창을 닫으면 진행 상황이 사라집니다.</p>
+
+  <main>
+    <!-- 처음 화면 -->
+    <section id="home" class="screen">
+      <div id="resumeBox"></div>
+
+      <h2 class="sec-title">시작하기</h2>
+      <div class="start-grid">
+        <button type="button" class="start-card" id="startFirst">
+          <strong>처음부터 시작</strong>
+          <span>2×2 쉬움부터 차례로 풀어요</span>
+        </button>
+        <button type="button" class="start-card" id="startNext">
+          <strong>다음 단계로</strong>
+          <span id="nextLabel">아직 푼 문제가 없어요</span>
+        </button>
+        <button type="button" class="start-card" id="startPick">
+          <strong>단계 선택</strong>
+          <span>원하는 크기와 난이도를 골라요</span>
+        </button>
+      </div>
+
+      <h2 class="sec-title">설정</h2>
+      <div class="settings">
+        <label><input type="checkbox" id="optUnlock"> 모든 단계 열기 <small>(선생님용)</small></label>
+        <label><input type="checkbox" id="optMistakes"> 틀린 숫자 바로 표시</label>
+        <label><input type="checkbox" id="optCands"> 후보 숫자 자동 표시</label>
+        <button type="button" class="ghost small danger" id="resetProfile">이 학생 기록 지우기</button>
+      </div>
+    </section>
+
+    <!-- 단계 선택 -->
+    <section id="levels" class="screen" hidden>
+      <div class="screen-head">
+        <button type="button" class="ghost small" data-go="home">← 처음 화면</button>
+        <h2>단계 선택</h2>
+      </div>
+      <p class="muted">앞 단계를 하나 풀면 다음 크기가 열려요. 같은 크기에서는 쉬움 → 보통 → 어려움 순서로 열려요.</p>
+      <div id="levelList" class="level-list"></div>
+    </section>
+
+    <!-- 게임 -->
+    <section id="game" class="screen" hidden>
+      <div class="game-head">
+        <button type="button" class="ghost small" id="exitGame">← 저장하고 나가기</button>
+        <div class="game-title"><strong id="gameTitle"></strong><span id="gameSub" class="muted"></span></div>
+        <div class="game-stats"><span id="timer">0:00</span><span id="hintCount">힌트 0</span></div>
+      </div>
+
+      <div class="board-wrap">
+        <div id="board" class="board" role="grid" aria-label="스도쿠 판"></div>
+      </div>
+
+      <div id="hintPanel" class="hint-panel" hidden>
+        <div class="hint-steps"><span data-l="1">1 살펴보기</span><span data-l="2">2 기법</span><span data-l="3">3 정답</span></div>
+        <p id="hintText"></p>
+      </div>
+
+      <div id="pad" class="pad"></div>
+
+      <div class="tools">
+        <button type="button" id="btnNotes" class="tool" aria-pressed="false">✎ 메모</button>
+        <button type="button" id="btnErase" class="tool">⌫ 지우기</button>
+        <button type="button" id="btnUndo" class="tool">↶ 되돌리기</button>
+        <button type="button" id="btnCheck" class="tool">✓ 검사</button>
+        <button type="button" id="btnHint" class="tool primary">💡 힌트</button>
+      </div>
+      <div class="tools secondary">
+        <button type="button" id="btnSave" class="ghost small">저장</button>
+        <button type="button" id="btnRestart" class="ghost small">이 문제 처음부터</button>
+        <button type="button" id="btnNew" class="ghost small">새 문제</button>
+      </div>
+      <p class="muted keys">키보드: 숫자 1–9, A·B·C(10·11·12), 화살표 이동, N 메모, Backspace 지우기, Ctrl+Z 되돌리기</p>
+    </section>
+  </main>
+
+  <dialog id="dlg"></dialog>
+  <div id="loading" class="loading" hidden><div class="spinner"></div><p>문제를 섞는 중…</p></div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="js/engine.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
