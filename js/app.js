@@ -286,6 +286,7 @@
     S.game = g;
     S.sel = -1; S.undo = []; S.hint = null; S.flash = null; S.notesMode = false;
     saveGame();
+    logEvent('start', g);
     buildBoard();
     show('game');
     render();
@@ -518,6 +519,7 @@
     S.data.progress[g.key] = p;
     delete S.data.saves[g.key];
     persist();
+    logEvent('finish', g);
     S.cells.forEach((el) => el.classList.add('win'));
     const nx = nextLevel(g.size, g.diff);
     const canNext = nx && unlocked(nx.size, nx.diff);
@@ -613,6 +615,10 @@
     const flush = () => { if (S.game) saveGame(); };
     document.addEventListener('visibilitychange', () => { if (document.hidden) flush(); });
     window.addEventListener('pagehide', flush);
+  }
+  /* AIEDU 익명 이용 기록: 이벤트 종류와 "크기-난이도" 태그만 보낸다(학생 이름·입력 숫자는 보내지 않음) */
+  function logEvent(type, g) {
+    try { if (window.aieduLog) window.aieduLog(type, g.size + '-' + g.diff); } catch (e) { /* 기록 실패는 무시 */ }
   }
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
