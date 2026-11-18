@@ -11,9 +11,9 @@
   <script src="../aiedu-log.js"></script>
   <style>
 /* AIEDU 허브로 가는 아이콘 — 모든 서비스 공통 모양·위치: 페이지 왼쪽 위(body 첫 요소). 앱마다 이 자리를 비워 둔다 */
-.aiedu-home{position:absolute;left:max(8px,env(safe-area-inset-left,0px));top:max(8px,env(safe-area-inset-top,0px));z-index:1000;display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:50%;background:linear-gradient(160deg,#ffe58f,#ffb08e);border:2px solid #fff;box-shadow:0 2px 0 rgba(74,52,38,.22);text-decoration:none;-webkit-tap-highlight-color:transparent}
+.aiedu-home{position:absolute;left:max(8px,env(safe-area-inset-left,0px));top:max(8px,env(safe-area-inset-top,0px));z-index:1000;display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:50%;background:linear-gradient(160deg,#ffe58f,#ffb08e);border:2px solid #fff;box-shadow:0 4px 0 #e2916b,0 5px 8px rgba(74,52,38,.16);transition:transform .14s ease-out,box-shadow .14s ease-out;text-decoration:none;-webkit-tap-highlight-color:transparent}
 .aiedu-home svg{width:30px;height:30px;display:block}
-.aiedu-home:active{transform:translateY(2px);box-shadow:none}
+.aiedu-home:active{transform:translateY(3px);box-shadow:0 1px 0 #e2916b;transition-duration:0s}
 .aiedu-home:focus-visible{outline:3px solid #f08a00;outline-offset:2px}
   </style>
 </head>
@@ -27,6 +27,8 @@ a.addEventListener('pointermove',function(e){if(Math.abs(e.clientX-sx)>8||Math.a
 a.addEventListener('pointercancel',function(){bad=true},{passive:true});
 a.addEventListener('click',function(e){if(bad||Date.now()-born<1000){e.preventDefault();bad=false}});
 a.draggable=false;})();
+/* 아이폰·아이패드(사파리)에서도 누르는 동안 버튼이 내려앉아 보이게(:active 켜기) */
+document.addEventListener('touchstart',function(){},{passive:true});
 </script>
   <header class="topbar">
     <button class="brand" id="homeBtn" type="button" aria-label="처음 화면">스도쿠</button>
