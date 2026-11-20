@@ -35,7 +35,7 @@ document.addEventListener('touchstart',function(){},{passive:true});
     <div class="profile">
       <label for="profileSel">학생</label>
       <select id="profileSel"></select>
-      <button type="button" id="addProfile" class="ghost small">+ 새 학생</button>
+      <button type="button" id="addProfile" class="ghost small" aria-label="새 학생 추가">+<span class="wide-only"> 새 학생</span></button>
     </div>
   </header>
 
@@ -48,17 +48,25 @@ document.addEventListener('touchstart',function(){},{passive:true});
 
       <h2 class="sec-title">시작하기</h2>
       <div class="start-grid">
+        <button type="button" class="start-card guide-card" id="openGuide">
+          <span class="sc-icon" aria-hidden="true">📖</span>
+          <strong>게임 방법 <em class="badge" id="guideBadge" hidden>처음이면 여기!</em></strong>
+          <span class="sc-desc">스도쿠 하는 법을 배워요</span>
+        </button>
         <button type="button" class="start-card" id="startFirst">
+          <span class="sc-icon" aria-hidden="true">🌱</span>
           <strong>처음부터 시작</strong>
-          <span>2×2 쉬움부터 차례로 풀어요</span>
+          <span class="sc-desc">2×2 쉬움부터 차례로 풀어요</span>
         </button>
         <button type="button" class="start-card" id="startNext">
+          <span class="sc-icon" aria-hidden="true">🚀</span>
           <strong>다음 단계로</strong>
-          <span id="nextLabel">아직 푼 문제가 없어요</span>
+          <span class="sc-desc" id="nextLabel">아직 푼 문제가 없어요</span>
         </button>
         <button type="button" class="start-card" id="startPick">
+          <span class="sc-icon" aria-hidden="true">🗂️</span>
           <strong>단계 선택</strong>
-          <span>원하는 크기와 난이도를 골라요</span>
+          <span class="sc-desc">크기와 난이도를 골라요</span>
         </button>
       </div>
 
@@ -84,14 +92,17 @@ document.addEventListener('touchstart',function(){},{passive:true});
     <!-- 게임 -->
     <section id="game" class="screen" hidden>
       <div class="game-head">
-        <button type="button" class="ghost small" id="exitGame">← 저장하고 나가기</button>
+        <button type="button" class="ghost small" id="exitGame" aria-label="저장하고 나가기">←<span class="wide-only"> 저장하고</span> 나가기</button>
         <div class="game-title"><strong id="gameTitle"></strong><span id="gameSub" class="muted"></span></div>
         <div class="game-stats"><span id="timer">0:00</span><span id="hintCount">힌트 0</span></div>
+        <button type="button" class="ghost small" id="gameGuide" aria-label="게임 방법 보기">❓ 방법</button>
       </div>
 
+      <div class="game-body">
       <div class="board-wrap">
         <div id="board" class="board" role="grid" aria-label="스도쿠 판"></div>
       </div>
+      <div class="side">
 
       <div id="hintPanel" class="hint-panel" hidden>
         <div class="hint-steps"><span data-l="1">1 살펴보기</span><span data-l="2">2 기법</span><span data-l="3">3 정답</span></div>
@@ -101,11 +112,11 @@ document.addEventListener('touchstart',function(){},{passive:true});
       <div id="pad" class="pad"></div>
 
       <div class="tools">
-        <button type="button" id="btnNotes" class="tool" aria-pressed="false">✎ 메모</button>
-        <button type="button" id="btnErase" class="tool">⌫ 지우기</button>
-        <button type="button" id="btnUndo" class="tool">↶ 되돌리기</button>
-        <button type="button" id="btnCheck" class="tool">✓ 검사</button>
-        <button type="button" id="btnHint" class="tool primary">💡 힌트</button>
+        <button type="button" id="btnNotes" class="tool" aria-pressed="false"><span class="ti">✏️</span><span class="tl">메모</span></button>
+        <button type="button" id="btnErase" class="tool"><span class="ti">⌫</span><span class="tl">지우기</span></button>
+        <button type="button" id="btnUndo" class="tool"><span class="ti">↶</span><span class="tl">되돌리기</span></button>
+        <button type="button" id="btnCheck" class="tool"><span class="ti">✅</span><span class="tl">검사</span></button>
+        <button type="button" id="btnHint" class="tool primary"><span class="ti">💡</span><span class="tl">힌트</span></button>
       </div>
       <div class="tools secondary">
         <button type="button" id="btnSave" class="ghost small">저장</button>
@@ -113,6 +124,83 @@ document.addEventListener('touchstart',function(){},{passive:true});
         <button type="button" id="btnNew" class="ghost small">새 문제</button>
       </div>
       <p class="muted keys">키보드: 숫자 1–9, A·B·C(10·11·12), 화살표 이동, N 메모, Backspace 지우기, Ctrl+Z 되돌리기</p>
+      </div>
+      </div>
+    </section>
+
+    <!-- 게임 방법 -->
+    <section id="guide" class="screen guide" hidden>
+      <div class="screen-head">
+        <button type="button" class="ghost small" id="guideBack">← 돌아가기</button>
+        <h2>스도쿠 하는 방법</h2>
+      </div>
+
+      <article class="g-card">
+        <h3><span class="g-num">1</span>스도쿠는 이런 놀이예요</h3>
+        <p>빈칸에 숫자를 넣어서 판을 꽉 채우는 <b>숫자 퍼즐</b>이에요.<br>
+          더하기나 빼기는 하지 않아요. <b>같은 숫자가 겹치지 않는 자리</b>만 찾으면 돼요!</p>
+        <div class="g-pair">
+          <figure><div class="board mini" id="gDemoQ"></div><figcaption>처음 판</figcaption></figure>
+          <span class="g-arrow" aria-hidden="true">➜</span>
+          <figure><div class="board mini" id="gDemoA"></div><figcaption>다 채운 판</figcaption></figure>
+        </div>
+      </article>
+
+      <article class="g-card">
+        <h3><span class="g-num">2</span>꼭 지킬 약속 3가지</h3>
+        <div class="g-rules">
+          <figure><div class="board mini" id="gRuleRow"></div><figcaption><b>① 가로줄</b>에는<br>1, 2, 3, 4가 한 번씩</figcaption></figure>
+          <figure><div class="board mini" id="gRuleCol"></div><figcaption><b>② 세로줄</b>에도<br>1, 2, 3, 4가 한 번씩</figcaption></figure>
+          <figure><div class="board mini" id="gRuleBox"></div><figcaption><b>③ 굵은 선 상자</b> 안에도<br>1, 2, 3, 4가 한 번씩</figcaption></figure>
+        </div>
+        <p class="g-note">💡 판이 크면 숫자도 많아져요. 6×6 판은 1~6, 9×9 판은 1~9를 써요. 10, 11, 12는 <b>A, B, C</b>로 써요.<br>
+          2×2, 3×3, 5×5처럼 <b>굵은 상자가 없는 판</b>은 가로줄·세로줄만 지키면 돼요.</p>
+      </article>
+
+      <article class="g-card">
+        <h3><span class="g-num">3</span>직접 해 봐요</h3>
+        <p>① <b>빈칸</b>을 누르고 → ② 아래 <b>숫자</b>를 눌러 보세요.</p>
+        <div class="practice">
+          <div class="board practice-board" id="pBoard" role="grid" aria-label="연습 판"></div>
+          <p class="p-msg" id="pMsg" role="status" aria-live="polite">빈칸을 하나 골라 보세요.</p>
+          <div class="pad" id="pPad" style="--cols:4"></div>
+          <button type="button" class="ghost small" id="pReset">↺ 연습 다시 하기</button>
+        </div>
+      </article>
+
+      <article class="g-card">
+        <h3><span class="g-num">4</span>버튼 알아보기</h3>
+        <ul class="g-buttons">
+          <li><span class="g-chip">✏️ 메모</span><span>들어갈 것 같은 숫자를 <b>작게</b> 적어 둬요. 한 번 더 누르면 꺼져요.</span></li>
+          <li><span class="g-chip">⌫ 지우기</span><span>고른 칸의 숫자를 지워요.</span></li>
+          <li><span class="g-chip">↶ 되돌리기</span><span>방금 한 것을 취소해요.</span></li>
+          <li><span class="g-chip">✅ 검사</span><span>지금까지 틀린 숫자가 있는지 알려 줘요.</span></li>
+          <li><span class="g-chip primary">💡 힌트</span><span>막히면 눌러요. 누를수록 더 자세히 알려 줘요.<br><small>1 어디를 볼지 → 2 찾는 방법 → 3 정답</small></span></li>
+        </ul>
+      </article>
+
+      <article class="g-card">
+        <h3><span class="g-num">5</span>막혔을 때 꿀팁</h3>
+        <ol class="g-tips">
+          <li><b>거의 다 찬 줄</b>부터 보세요. 빈칸이 하나만 남았으면, 그 줄에 없는 숫자가 정답이에요!</li>
+          <li>칸 하나를 골라 그 칸의 <b>가로줄·세로줄·상자</b>에 있는 숫자를 모두 빼 보세요. 하나만 남으면 그게 정답이에요.</li>
+          <li>숫자 하나(예: 1)를 정하고, 그 숫자가 <b>들어갈 수 있는 자리</b>를 찾아보세요.</li>
+          <li>그래도 모르겠으면 <b>💡 힌트</b>를 눌러요. 부끄러운 게 아니에요!</li>
+        </ol>
+      </article>
+
+      <article class="g-card">
+        <h3><span class="g-num">6</span>별 모으기와 저장</h3>
+        <ul class="g-stars">
+          <li><span class="stars-s">★★★</span> 힌트 없이 풀었어요</li>
+          <li><span class="stars-s">★★☆</span> 힌트 2번까지</li>
+          <li><span class="stars-s">★☆☆</span> 힌트를 더 많이 썼어요</li>
+        </ul>
+        <p>판을 다 풀면 <b>다음 단계</b>가 열려요. 중간에 나가도 <b>자동으로 저장</b>돼요.<br>
+          다음에 <b>이어하기</b>를 누르면 멈춘 곳부터 계속할 수 있어요.</p>
+      </article>
+
+      <div class="g-end"><button type="button" class="primary big" id="guideStart">🎮 이제 문제 풀러 가기</button></div>
     </section>
   </main>
 

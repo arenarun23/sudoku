@@ -12,6 +12,9 @@
                 8: [2, 4], 9: [3, 3], 10: [2, 5], 11: [1, 11], 12: [3, 4] };
 
   const sym = (v) => (v <= 9 ? String(v) : 'ABC'[v - 10]);
+  // 숫자 읽는 소리에 맞춘 조사: 1(일)이, 2(이)가, 3(삼)이 … A(에이)가
+  const IGA = { 1: '이', 2: '가', 3: '이', 4: '가', 5: '가', 6: '이', 7: '이', 8: '이', 9: '가', 10: '가', 11: '가', 12: '가' };
+  const iga = (v) => sym(v) + IGA[v];
   const range = (n) => Array.from({ length: n }, (_, i) => i);
   const pc = (x) => { let c = 0; while (x) { x &= x - 1; c++; } return c; };
 
@@ -198,11 +201,12 @@
         const v = Math.log2(m) + 1;
         const seen = new Set();
         for (const p of g.peers[i]) if (a[p]) seen.add(a[p]);
-        const list = [...seen].sort((x, y) => x - y).map(sym).join(', ');
+        const sorted = [...seen].sort((x, y) => x - y);
+        const list = sorted.slice(0, -1).map(sym).concat(iga(sorted[sorted.length - 1])).join(', ');
         return { type: 'naked', cell: i, value: v, region: regionOf(i),
           text1: `초록색으로 표시된 가로줄·세로줄${g.hasBox ? '·상자' : ''}에서 이미 쓰인 숫자를 모아 보세요.`,
           text2: '기법 "하나만 남은 칸": 어떤 칸에 들어갈 수 있는 숫자가 하나만 남는 곳을 찾으세요.',
-          text3: `표시된 칸의 가로줄·세로줄${g.hasBox ? '·상자' : ''}에 ${list}이(가) 이미 있어서 ${sym(v)}만 들어갈 수 있어요.` };
+          text3: `표시된 칸의 가로줄·세로줄${g.hasBox ? '·상자' : ''}에 ${list} 이미 있어서 ${sym(v)}만 들어갈 수 있어요.` };
       }
     }
     // 2) 유일한 자리
@@ -213,8 +217,8 @@
         if (spots.length === 1) {
           return { type: 'hidden', cell: spots[0], value: v, region: u.cells.slice(),
             text1: `초록색 ${UNIT_KO[u.kind]}을(를) 살펴보세요.`,
-            text2: `기법 "유일한 자리": 이 ${UNIT_KO[u.kind]}에서 숫자 ${sym(v)}이(가) 들어갈 수 있는 칸이 하나뿐이에요. ${sym(v)}의 자리를 찾아보세요.`,
-            text3: `이 ${UNIT_KO[u.kind]}에서 ${sym(v)}이(가) 들어갈 수 있는 칸은 표시된 칸뿐이에요.` };
+            text2: `기법 "유일한 자리": 이 ${UNIT_KO[u.kind]}에서 숫자 ${iga(v)} 들어갈 수 있는 칸이 하나뿐이에요. ${sym(v)}의 자리를 찾아보세요.`,
+            text3: `이 ${UNIT_KO[u.kind]}에서 ${iga(v)} 들어갈 수 있는 칸은 표시된 칸뿐이에요.` };
         }
       }
     }
@@ -227,5 +231,5 @@
       text3: `후보가 가장 적은 칸이에요. 정답은 ${sym(solution[best])}입니다.` };
   }
 
-  root.SudokuEngine = { BOX, geometry, makeSolution, countSolutions, logicSolve, generate, findHint, sym, randInt, shuffle };
+  root.SudokuEngine = { BOX, geometry, makeSolution, countSolutions, logicSolve, generate, findHint, sym, iga, randInt, shuffle };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

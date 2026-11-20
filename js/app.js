@@ -40,13 +40,14 @@
   }
   const blankData = () => ({
     saves: {}, progress: {},
-    settings: { unlockAll: false, showMistakes: true, autoCands: false },
+    settings: { unlockAll: false, showMistakes: true, autoCands: false, seenGuide: false },
   });
 
   const S = {
     profiles: [], profile: '', data: null,
     game: null, cells: [], sel: -1, notesMode: false,
     undo: [], hint: null, flash: null, timer: null, busy: false,
+    screen: 'home', guideFrom: 'home', guidePending: null,
   };
 
   function loadProfiles() {
@@ -58,7 +59,10 @@
   function selectProfile(name) {
     S.profile = name;
     store(NS + '.current', name);
-    const d = load(NS + '.p.' + name, null) || blankData();
+    let d = load(NS + '.p.' + name, null);
+    if (!d || typeof d !== 'object') d = blankData();
+    if (!d.saves || typeof d.saves !== 'object') d.saves = {};
+    if (!d.progress || typeof d.progress !== 'object') d.progress = {};
     d.settings = Object.assign(blankData().settings, d.settings || {});
     S.data = d;
   }
@@ -67,6 +71,8 @@
   // ================= 공통 UI =================
   function show(id) {
     for (const s of document.querySelectorAll('.screen')) s.hidden = s.id !== id;
+    S.screen = id;
+    document.body.dataset.screen = id;
     if (id === 'home') renderHome();
     if (id === 'levels') renderLevels();
     window.scrollTo(0, 0);
@@ -189,6 +195,7 @@
     const sg = suggestedLevel();
     $('#nextLabel').textContent = sg ? `${sg.size}×${sg.size} ${DIFF_KO[sg.diff]} (${tier(sg.size)})` : '모든 단계를 풀었어요!';
     $('#startNext').disabled = !sg;
+    $('#guideBadge').hidden = !!S.data.settings.seenGuide;
     const st = S.data.settings;
     $('#optUnlock').checked = st.unlockAll;
     $('#optMistakes').checked = st.showMistakes;
@@ -257,6 +264,15 @@
   /* 단계 시작: 저장된 문제가 있으면 이어하기 / 처음부터 / 새 문제 중 고르게 한다 */
   async function launch(size, diff, forceNew) {
     if (S.busy) return;
+    if (!S.data.settings.seenGuide) {
+      const c = await ask('스도쿠가 처음이에요?', '게임 방법을 먼저 보면 훨씬 쉬워요. 직접 해 보는 연습 문제도 있어요!',
+        [{ label: '📖 게임 방법 먼저 보기', value: 'guide', cls: 'primary' },
+         { label: '바로 시작할래요', value: 'go' }]);
+      if (c === null) return;
+      S.data.settings.seenGuide = true;
+      persist();
+      if (c === 'guide') { openGuide({ size, diff, forceNew }); return; }
+    }
     const saved = S.data.saves[keyOf(size, diff)];
     if (saved && !forceNew) {
       const pct = progressPct(saved);
@@ -403,11 +419,132 @@
       panel.hidden = false;
       $('#hintText').textContent = h['text' + h.level];
       for (const s of panel.querySelectorAll('[data-l]')) s.classList.toggle('on', +s.dataset.l <= h.level);
-      $('#btnHint').textContent = h.level < 3 ? `💡 더 ${h.level + 1}/3` : h.type === 'error' ? '🧹 지우기' : '✔ 넣기';
+      if (h.level < 3) setTool('#btnHint', '💡', `더 보기 ${h.level + 1}/3`);
+      else if (h.type === 'error') setTool('#btnHint', '🧹', '틀린 것 지우기');
+      else setTool('#btnHint', '✔️', '정답 넣기');
     } else {
       panel.hidden = true;
-      $('#btnHint').textContent = '💡 힌트';
+      setTool('#btnHint', '💡', '힌트');
     }
+  }
+
+  function setTool(sel, icon, label) {
+    const b = $(sel);
+    b.querySelector('.ti').textContent = icon;
+    b.querySelector('.tl').textContent = label;
+  }
+
+  // ================= 게임 방법 =================
+  // 4×4 예시 판(상자 2×2). 0 = 연습판의 빈칸
+  const G_SOL = [1, 2, 3, 4, 3, 4, 1, 2, 2, 1, 4, 3, 4, 3, 2, 1];
+  const G_BLANK = [1, 6, 8, 11, 15];
+  const G_RULE = { row: [4, 5, 6, 7], col: [2, 6, 10, 14], box: [10, 11, 14, 15] };
+  const P = { values: [], sel: -1, cells: [], done: false };
+
+  function miniBoard(el, values, cls) {
+    el.style.setProperty('--n', 4);
+    el.innerHTML = '';
+    const cells = [];
+    for (let i = 0; i < 16; i++) {
+      const c = document.createElement('div');
+      const r = Math.floor(i / 4), col = i % 4;
+      c.className = 'cell' + (col === 1 ? ' bR' : '') + (r === 1 ? ' bB' : '') + (values[i] ? ' given' : '');
+      if (cls && cls[i]) c.classList.add(cls[i]);
+      c.textContent = values[i] ? String(values[i]) : '';
+      el.appendChild(c);
+      cells.push(c);
+    }
+    return cells;
+  }
+  function buildGuide() {
+    const q = G_SOL.map((v, i) => (G_BLANK.includes(i) ? 0 : v));
+    miniBoard($('#gDemoQ'), q);
+    miniBoard($('#gDemoA'), G_SOL);
+    for (const [id, key] of [['#gRuleRow', 'row'], ['#gRuleCol', 'col'], ['#gRuleBox', 'box']]) {
+      const cls = {};
+      G_RULE[key].forEach((i) => (cls[i] = 'rule-hl'));
+      miniBoard($(id), G_SOL, cls);
+    }
+    const pad = $('#pPad');
+    pad.innerHTML = '';
+    for (let v = 1; v <= 4; v++) {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'num'; b.dataset.v = v; b.textContent = v;
+      pad.appendChild(b);
+    }
+    resetPractice();
+  }
+  function resetPractice() {
+    P.values = G_SOL.map((v, i) => (G_BLANK.includes(i) ? 0 : v));
+    P.sel = -1; P.done = false;
+    P.cells = miniBoard($('#pBoard'), P.values);
+    P.cells.forEach((c, i) => { c.dataset.i = i; if (!P.values[i]) c.classList.add('blank'); });
+    practiceMsg('빈칸을 하나 골라 보세요.', '');
+    renderPractice();
+  }
+  function renderPractice(bad) {
+    const geo = E.geometry(4);
+    const peers = P.sel >= 0 ? new Set(geo.peers[P.sel]) : new Set();
+    P.cells.forEach((c, i) => {
+      c.classList.toggle('sel', i === P.sel);
+      c.classList.toggle('peer', peers.has(i));
+      c.classList.toggle('wrong', !!bad && bad.includes(i));
+      if (!c.classList.contains('given')) c.textContent = P.values[i] ? String(P.values[i]) : '';
+    });
+  }
+  function practiceMsg(text, kind) {
+    const m = $('#pMsg');
+    m.textContent = text;
+    m.className = 'p-msg' + (kind ? ' ' + kind : '');
+  }
+  function practiceInput(v) {
+    if (P.done) return;
+    const i = P.sel;
+    if (i < 0 || !G_BLANK.includes(i)) { practiceMsg('먼저 빈칸을 눌러 주세요.', 'warn'); return; }
+    if (P.values[i] === G_SOL[i]) { practiceMsg('이 칸은 벌써 맞혔어요! 다른 빈칸을 골라요.', ''); return; }
+    if (v === G_SOL[i]) {
+      P.values[i] = v;
+      P.cells[i].classList.add('ok');
+      const left = G_BLANK.filter((k) => P.values[k] !== G_SOL[k]).length;
+      if (!left) {
+        P.done = true; P.sel = -1;
+        renderPractice();
+        practiceMsg('🎉 다 채웠어요! 약속 3가지를 모두 지켰어요. 이제 진짜 문제를 풀어 볼까요?', 'good');
+        return;
+      }
+      renderPractice();
+      practiceMsg(`딩동댕! ${E.iga(v)} 맞았어요 👏 빈칸이 ${left}개 남았어요.`, 'good');
+      return;
+    }
+    // 어느 약속을 어겼는지 알려 준다
+    const geo = E.geometry(4);
+    const r = Math.floor(i / 4), c = i % 4;
+    const row = [0, 1, 2, 3].map((k) => r * 4 + k), col = [0, 1, 2, 3].map((k) => k * 4 + c);
+    const box = geo.units.find((u) => u.kind === 'box' && u.cells.includes(i)).cells;
+    const hit = (cells) => cells.filter((k) => k !== i && P.values[k] === v);
+    let msg, bad;
+    if ((bad = hit(row)).length) msg = `앗! 이 가로줄에 ${E.iga(v)} 벌써 있어요.`;
+    else if ((bad = hit(col)).length) msg = `앗! 이 세로줄에 ${E.iga(v)} 벌써 있어요.`;
+    else if ((bad = hit(box)).length) msg = `앗! 이 굵은 선 상자에 ${E.iga(v)} 벌써 있어요.`;
+    else { bad = []; msg = `${v}도 들어갈 것 같지만 정답이 아니에요. 다른 빈칸부터 채우고 다시 생각해 봐요.`; }
+    renderPractice(bad);
+    practiceMsg(msg, 'warn');
+  }
+  function openGuide(pending) {
+    if (S.screen !== 'guide') S.guideFrom = S.screen;
+    S.guidePending = pending || null;
+    if (!S.data.settings.seenGuide) { S.data.settings.seenGuide = true; persist(); }
+    if (S.game && S.screen === 'game') saveGame();
+    show('guide');
+    $('#guideStart').textContent = S.guideFrom === 'game' && S.game ? '🎮 풀던 문제로 돌아가기' : '🎮 이제 문제 풀러 가기';
+  }
+  function closeGuide(start) {
+    const pending = S.guidePending;
+    S.guidePending = null;
+    if (pending) { if (start) launch(pending.size, pending.diff, pending.forceNew); else show('home'); return; }
+    if (S.guideFrom === 'game' && S.game) { show('game'); render(); return; }
+    if (start) { const sg = suggestedLevel() || { size: 2, diff: 'easy' }; launch(sg.size, sg.diff); return; }
+    show(S.guideFrom === 'levels' ? 'levels' : 'home');
   }
 
   // ================= 입력 =================
@@ -548,6 +685,25 @@
     $('#homeBtn').onclick = () => (S.game ? exitGame() : show('home'));
     document.querySelectorAll('[data-go]').forEach((b) => (b.onclick = () => show(b.dataset.go)));
     $('#startPick').onclick = () => show('levels');
+    $('#openGuide').onclick = () => openGuide();
+    $('#gameGuide').onclick = () => openGuide();
+    $('#guideBack').onclick = () => closeGuide(false);
+    $('#guideStart').onclick = () => closeGuide(true);
+    $('#pReset').onclick = resetPractice;
+    $('#pBoard').addEventListener('click', (e) => {
+      const c = e.target.closest('.cell');
+      if (!c || P.done) return;
+      const i = +c.dataset.i;
+      P.sel = i;
+      renderPractice();
+      if (!G_BLANK.includes(i)) practiceMsg('이 칸은 처음부터 있던 숫자예요. 빈칸을 골라 주세요.', '');
+      else if (P.values[i]) practiceMsg('이 칸은 벌써 맞혔어요!', 'good');
+      else practiceMsg('좋아요! 이제 아래에서 숫자를 골라요. 가로줄·세로줄·상자에 없는 숫자는 뭘까요?', '');
+    });
+    $('#pPad').addEventListener('click', (e) => {
+      const b = e.target.closest('.num');
+      if (b) practiceInput(+b.dataset.v);
+    });
     $('#startFirst').onclick = () => launch(2, 'easy');
     $('#startNext').onclick = () => { const s = suggestedLevel(); if (s) launch(s.size, s.diff); };
     $('#optUnlock').onchange = (e) => { S.data.settings.unlockAll = e.target.checked; persist(); renderHome(); };
@@ -628,6 +784,7 @@
   loadProfiles();
   renderProfiles();
   bind();
-  show('home');
+  buildGuide();
+  if (location.hash === '#guide') { S.data.settings.seenGuide = true; persist(); show('guide'); } else show('home');
   if (!storageOK) $('#storageWarn').hidden = false;
 })();
