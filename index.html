@@ -2,7 +2,7 @@
 <html lang="ko">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>스도쿠 · AI Edu</title>
   <meta name="description" content="2×2부터 12×12까지 단계별로 푸는 스도쿠. 단계별 힌트와 이어하기를 지원합니다.">
   <link rel="stylesheet" href="../fonts/gowun-dodum.css">
@@ -75,6 +75,7 @@ document.addEventListener('touchstart',function(){},{passive:true});
         <label><input type="checkbox" id="optUnlock"> 모든 단계 열기 <small>(선생님용)</small></label>
         <label><input type="checkbox" id="optMistakes"> 틀린 숫자 바로 표시</label>
         <label><input type="checkbox" id="optCands"> 후보 숫자 자동 표시</label>
+        <label id="optFullRow"><input type="checkbox" id="optFull"> 게임할 때 전체 화면 <small>(폰·태블릿)</small></label>
         <button type="button" class="ghost small danger" id="resetProfile">이 학생 기록 지우기</button>
       </div>
     </section>
@@ -89,24 +90,25 @@ document.addEventListener('touchstart',function(){},{passive:true});
       <div id="levelList" class="level-list"></div>
     </section>
 
-    <!-- 게임 -->
+    <!-- 게임: 기기 화면을 꽉 채우는 놀이 화면. 배치·크기는 app.js 의 layoutGame() 이 화면 크기로 계산 -->
     <section id="game" class="screen" hidden>
       <div class="game-head">
-        <button type="button" class="ghost small" id="exitGame" aria-label="저장하고 나가기">←<span class="wide-only"> 저장하고</span> 나가기</button>
-        <div class="game-title"><strong id="gameTitle"></strong><span id="gameSub" class="muted"></span></div>
-        <div class="game-stats"><span id="timer">0:00</span><span id="hintCount">힌트 0</span></div>
-        <button type="button" class="ghost small" id="gameGuide" aria-label="게임 방법 보기">❓ 방법</button>
+        <button type="button" class="ghost icon-btn" id="exitGame" aria-label="저장하고 나가기"><span class="ic">←</span><span class="lbl"> 나가기</span></button>
+        <div class="game-title">
+          <strong id="gameTitle"></strong>
+          <span class="game-sub"><span id="gameSub"></span><span class="game-stats"> · ⏱ <span id="timer">0:00</span> · 💡 <span id="hintCount">0</span></span></span>
+        </div>
+        <button type="button" class="ghost icon-btn" id="gameGuide" aria-label="게임 방법 보기"><span class="ic">❓</span><span class="lbl"> 방법</span></button>
+        <button type="button" class="ghost icon-btn" id="btnFull" aria-label="전체 화면" hidden><span class="ic">⛶</span></button>
       </div>
 
-      <div class="game-body">
       <div class="board-wrap">
         <div id="board" class="board" role="grid" aria-label="스도쿠 판"></div>
       </div>
-      <div class="side">
 
-      <div id="hintPanel" class="hint-panel" hidden>
-        <div class="hint-steps"><span data-l="1">1 살펴보기</span><span data-l="2">2 기법</span><span data-l="3">3 정답</span></div>
-        <p id="hintText"></p>
+      <div id="hintPanel" class="hint-panel" role="status" aria-live="polite">
+        <span class="hint-steps" hidden><span data-l="1">1</span><span data-l="2">2</span><span data-l="3">3</span></span>
+        <span id="hintText"></span>
       </div>
 
       <div id="pad" class="pad"></div>
@@ -120,11 +122,8 @@ document.addEventListener('touchstart',function(){},{passive:true});
       </div>
       <div class="tools secondary">
         <button type="button" id="btnSave" class="ghost small">저장</button>
-        <button type="button" id="btnRestart" class="ghost small">이 문제 처음부터</button>
+        <button type="button" id="btnRestart" class="ghost small">처음부터</button>
         <button type="button" id="btnNew" class="ghost small">새 문제</button>
-      </div>
-      <p class="muted keys">키보드: 숫자 1–9, A·B·C(10·11·12), 화살표 이동, N 메모, Backspace 지우기, Ctrl+Z 되돌리기</p>
-      </div>
       </div>
     </section>
 

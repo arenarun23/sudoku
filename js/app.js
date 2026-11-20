@@ -40,7 +40,7 @@
   }
   const blankData = () => ({
     saves: {}, progress: {},
-    settings: { unlockAll: false, showMistakes: true, autoCands: false, seenGuide: false },
+    settings: { unlockAll: false, showMistakes: true, autoCands: false, seenGuide: false, fullscreen: true },
   });
 
   const S = {
@@ -200,6 +200,8 @@
     $('#optUnlock').checked = st.unlockAll;
     $('#optMistakes').checked = st.showMistakes;
     $('#optCands').checked = st.autoCands;
+    $('#optFull').checked = st.fullscreen;
+    $('#optFullRow').hidden = !fsSupported;
   }
 
   // ================= 단계 선택 =================
@@ -304,7 +306,9 @@
     saveGame();
     logEvent('start', g);
     buildBoard();
+    if (S.data.settings.fullscreen && touchDevice()) enterFull();
     show('game');
+    layoutGame();
     render();
     startTimer();
   }
@@ -348,10 +352,9 @@
       S.cells.push(el);
     }
     $('#gameTitle').textContent = `${N}×${N} · ${DIFF_KO[g.diff]}`;
-    $('#gameSub').textContent = `${tier(N)} · ${boxLabel(N)}`;
+    $('#gameSub').textContent = tier(N);
     const pad = $('#pad');
     pad.innerHTML = '';
-    pad.style.setProperty('--cols', N <= 6 ? N : Math.ceil(N / 2));
     for (let v = 1; v <= N; v++) {
       const b = document.createElement('button');
       b.type = 'button'; b.className = 'num'; b.dataset.v = v;
@@ -411,21 +414,113 @@
     $('#btnNotes').setAttribute('aria-pressed', String(S.notesMode));
     $('#btnNotes').classList.toggle('on', S.notesMode);
     $('#timer').textContent = fmtTime(g.elapsed);
-    $('#hintCount').textContent = '힌트 ' + g.hints;
+    $('#hintCount').textContent = g.hints;
     $('#btnUndo').disabled = !S.undo.length;
-    // 힌트 패널
+    // 안내 말풍선: 힌트가 있으면 힌트, 없으면 지금 할 일을 알려 준다
     const panel = $('#hintPanel');
+    panel.classList.toggle('on', !!h);
+    panel.querySelector('.hint-steps').hidden = !h;
     if (h) {
-      panel.hidden = false;
       $('#hintText').textContent = h['text' + h.level];
       for (const s of panel.querySelectorAll('[data-l]')) s.classList.toggle('on', +s.dataset.l <= h.level);
-      if (h.level < 3) setTool('#btnHint', '💡', `더 보기 ${h.level + 1}/3`);
-      else if (h.type === 'error') setTool('#btnHint', '🧹', '틀린 것 지우기');
-      else setTool('#btnHint', '✔️', '정답 넣기');
+      if (h.level < 3) setTool('#btnHint', '💡', '더 보기');
+      else if (h.type === 'error') setTool('#btnHint', '🧹', '지우기');
+      else setTool('#btnHint', '✔️', '넣기');
     } else {
-      panel.hidden = true;
+      let msg;
+      if (S.notesMode) msg = '✏️ 메모 중이에요. 숫자를 누르면 칸에 작게 적혀요.';
+      else if (sel < 0) msg = '👆 빈칸을 누르고, 숫자 버튼을 골라요.';
+      else if (g.givens[sel]) msg = '처음부터 있던 숫자예요. 빈칸을 골라 주세요.';
+      else if (!g.values[sel]) msg = '🔢 이 칸에 들어갈 숫자를 골라요. 막히면 💡 힌트!';
+      else msg = '다른 숫자로 바꾸려면 숫자를 누르고, 지우려면 ⌫ 를 눌러요.';
+      $('#hintText').textContent = msg;
       setTool('#btnHint', '💡', '힌트');
     }
+  }
+
+  // ================= 화면 꽉 채우기 (레이싱 게임처럼) =================
+  /* 기기 화면 크기와 방향을 재서 기준 크기 --u(버튼·글자)와 판 크기 --board 를 정한다.
+   * 세로: 위 메뉴 → 판 → 안내 → 숫자 → 도구.  가로: 왼쪽 판, 오른쪽 메뉴·안내·숫자·도구.
+   * 아래 K 값은 판을 뺀 나머지 줄들의 높이 합(u 단위)으로, style.css 의 #game 높이 값과 짝을 이룬다. */
+  const ICON_W = 52;          // 왼쪽 위 허브 복귀 아이콘 자리
+  const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+  function layoutGame() {
+    if (S.screen !== 'game' || !S.game) return;
+    const vv = window.visualViewport;
+    const W = Math.round(vv ? vv.width : window.innerWidth);
+    const H = Math.round(vv ? vv.height : window.innerHeight);
+    const N = S.game.size;
+    const land = W > H * 1.05;
+    const GAP = 0.45, SLACK = 0.4;     // SLACK: 반올림·테두리 여유(u)
+    const rowsOf = (c) => Math.ceil(N / c);
+    let cols = N <= 6 ? N : Math.ceil(N / 2);
+    let u, board, sideW;
+    if (!land) {
+      // 머리 2.8 + 안내 3.9 + 숫자 2.6×줄(남으면 더 커짐) + 도구 3.2 + 아래 줄 2.2 + 틈
+      const K = 2.8 + 3.9 + rowsOf(cols) * 2.6 + (rowsOf(cols) - 1) * GAP + 3.2 + 2.2 + GAP * 7 + SLACK;
+      u = clamp(W / 21, 12, 30);
+      board = Math.min(W - 2 * GAP * u, H - K * u);
+      if (board < W * 0.82) {           // 판이 작아지면 버튼을 조금 줄여 판을 키운다
+        u = clamp((H - W * 0.82) / K, 10, u);
+        board = Math.min(W - 2 * GAP * u, H - K * u);
+      }
+      sideW = W;
+    } else {
+      // 오른쪽 칸: 머리 2.8 + 안내(최소 3.4) + 숫자 2.8×줄 + 도구 3.2 + 아래 줄 2.2 + 틈
+      const fit = (c) => {
+        const K = 2.8 + 3.4 + rowsOf(c) * 2.8 + (rowsOf(c) - 1) * GAP + 3.2 + 2.2 + GAP * 6 + SLACK;
+        const uu = clamp(Math.min(H / K, (W - ICON_W) / 34), 10, 30);   // 낮거나 좁은 가로 화면이면 버튼을 줄인다
+        let bb = H - 2 * GAP * uu;
+        const sideMin = Math.max(16 * uu, 230);   // 제목·버튼 이름이 잘리지 않을 만큼
+        const room = W - ICON_W - 3 * GAP * uu - bb;
+        if (room < sideMin) bb -= sideMin - room;
+        return { u: uu, board: bb, side: W - ICON_W - 3 * GAP * uu - bb };
+      };
+      let f = fit(cols);
+      // 오른쪽 칸이 좁아 숫자 버튼이 너무 가늘면 숫자판을 한 줄 더 늘려 버튼을 넓힌다
+      if (N > 6 && (f.side - (cols - 1) * GAP * f.u) / cols < 2.4 * f.u) {
+        const c2 = Math.ceil(N / 3), f2 = fit(c2);
+        if (f2.board >= f.board * 0.85) { cols = c2; f = f2; }
+      }
+      u = f.u; board = f.board; sideW = f.side;
+    }
+    board = Math.floor(Math.max(board, 120));
+    const el = $('#game');
+    el.classList.toggle('land', land);
+    el.classList.toggle('port', !land);
+    el.style.setProperty('--u', u.toFixed(2) + 'px');
+    el.style.setProperty('--board', board + 'px');
+    $('#pad').style.setProperty('--cols', cols);
+    el.classList.toggle('roomy', sideW > 22 * u);
+  }
+  let layoutRaf = 0;
+  const relayout = () => { cancelAnimationFrame(layoutRaf); layoutRaf = requestAnimationFrame(layoutGame); };
+
+  // ================= 전체화면 =================
+  const docEl = document.documentElement;
+  const fsSupported = !!(docEl.requestFullscreen || docEl.webkitRequestFullscreen);
+  const isFull = () => !!(document.fullscreenElement || document.webkitFullscreenElement);
+  const touchDevice = () => window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+  function enterFull() {
+    if (!fsSupported || isFull()) return;
+    try {
+      const r = (docEl.requestFullscreen || docEl.webkitRequestFullscreen).call(docEl, { navigationUI: 'hide' });
+      if (r && r.catch) r.catch(() => {});      // 사용자 동작 없이 부르면 브라우저가 거절할 수 있다(무시)
+    } catch (e) { /* 무시 */ }
+  }
+  function exitFull() {
+    if (!isFull()) return;
+    try {
+      const r = (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+      if (r && r.catch) r.catch(() => {});
+    } catch (e) { /* 무시 */ }
+  }
+  function syncFullBtn() {
+    const b = $('#btnFull');
+    b.hidden = !fsSupported;
+    b.classList.toggle('on', isFull());
+    b.setAttribute('aria-label', isFull() ? '전체 화면 끄기' : '전체 화면');
+    b.querySelector('.ic').textContent = isFull() ? '🗗' : '⛶';
   }
 
   function setTool(sel, icon, label) {
@@ -542,7 +637,7 @@
     const pending = S.guidePending;
     S.guidePending = null;
     if (pending) { if (start) launch(pending.size, pending.diff, pending.forceNew); else show('home'); return; }
-    if (S.guideFrom === 'game' && S.game) { show('game'); render(); return; }
+    if (S.guideFrom === 'game' && S.game) { show('game'); layoutGame(); render(); return; }
     if (start) { const sg = suggestedLevel() || { size: 2, diff: 'easy' }; launch(sg.size, sg.diff); return; }
     show(S.guideFrom === 'levels' ? 'levels' : 'home');
   }
@@ -709,6 +804,12 @@
     $('#optUnlock').onchange = (e) => { S.data.settings.unlockAll = e.target.checked; persist(); renderHome(); };
     $('#optMistakes').onchange = (e) => { S.data.settings.showMistakes = e.target.checked; persist(); };
     $('#optCands').onchange = (e) => { S.data.settings.autoCands = e.target.checked; persist(); };
+    $('#optFull').onchange = (e) => { S.data.settings.fullscreen = e.target.checked; persist(); };
+    $('#btnFull').onclick = () => (isFull() ? exitFull() : enterFull());
+    for (const ev of ['fullscreenchange', 'webkitfullscreenchange']) document.addEventListener(ev, () => { syncFullBtn(); relayout(); });
+    window.addEventListener('resize', relayout);
+    window.addEventListener('orientationchange', relayout);
+    if (window.visualViewport) window.visualViewport.addEventListener('resize', relayout);
     $('#resetProfile').onclick = async () => {
       const ok = await ask('기록 지우기', `<b>${escapeHtml(S.profile)}</b> 학생의 진행 기록과 저장된 문제를 모두 지울까요? 되돌릴 수 없어요.`,
         [{ label: '취소', value: false, cls: 'ghost' }, { label: '모두 지우기', value: true, cls: 'danger' }]);
@@ -785,6 +886,7 @@
   renderProfiles();
   bind();
   buildGuide();
+  syncFullBtn();
   if (location.hash === '#guide') { S.data.settings.seenGuide = true; persist(); show('guide'); } else show('home');
   if (!storageOK) $('#storageWarn').hidden = false;
 })();
