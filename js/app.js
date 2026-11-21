@@ -4,10 +4,10 @@
   const E = window.SudokuEngine;
   const $ = (s) => document.querySelector(s);
   const sym = E.sym;
-  const SIZES = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+  const SIZES = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
   const DIFFS = ['easy', 'medium', 'hard'];
   const DIFF_KO = { easy: '쉬움', medium: '보통', hard: '어려움' };
-  const tier = (n) => (n <= 4 ? '초급' : n <= 8 ? '중급' : '고급');
+  const tier = (n) => (n <= 4 ? '초급' : n <= 8 ? '중급' : n <= 12 ? '고급' : '최고급');
   const keyOf = (size, diff) => size + '-' + diff;
   const fmtTime = (s) => {
     const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60;
@@ -101,7 +101,9 @@
         el.onclick = () => finish(b.value);
         box.appendChild(el);
       }
-      d.onclose = () => finish(null);
+      // 대화상자를 연달아 열 때(완성 → "이어할까요?") 앞 창의 close 이벤트가 늦게 도착해
+      // 새 창을 '취소'로 닫아 버리는 일이 있었다. 이벤트가 왔을 때 창이 실제로 닫혀 있을 때만 취소로 본다.
+      d.onclose = () => { if (!d.open) finish(null); };
       d.showModal();
       const first = box.querySelector('.primary') || box.firstChild;
       if (first) first.focus();
@@ -131,7 +133,7 @@
   function nextLevel(size, diff) {
     const di = DIFFS.indexOf(diff);
     if (di < 2) return { size, diff: DIFFS[di + 1] };
-    if (size < 12) return { size: size + 1, diff: 'easy' };
+    if (size < SIZES[SIZES.length - 1]) return { size: size + 1, diff: 'easy' };
     return null;
   }
   /* 아직 안 푼 단계 중 열려 있는 가장 앞 단계 */
@@ -861,7 +863,7 @@
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       let v = 0;
       if (/^[1-9]$/.test(k)) v = +k;
-      else if (/^[abcABC]$/.test(k)) v = 10 + 'abc'.indexOf(k.toLowerCase());
+      else if (/^[a-gA-G]$/.test(k)) v = 10 + 'abcdefg'.indexOf(k.toLowerCase());   // 10~16 = A~G
       if (v) { if (v <= N) { input(v); e.preventDefault(); } return; }
       const mv = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] }[k];
       if (mv) { e.preventDefault(); moveSel(mv[0], mv[1]); return; }

@@ -215,7 +215,7 @@ body[data-screen="game"] main { max-width: none; padding: 0; }
 @media (prefers-reduced-motion: reduce) { .cell.hint-target { animation: none; } }
 .notes {
   position: absolute; inset: 2px; display: grid; grid-template-columns: repeat(var(--nc), 1fr);
-  font-size: max(9px, calc(var(--cell) / var(--nc) * 0.66)); line-height: 1; color: var(--muted); font-weight: 700;
+  font-size: max(7px, calc(var(--cell) / var(--nc) * 0.66)); line-height: 1; color: var(--muted); font-weight: 700;
 }
 .notes i { font-style: normal; display: flex; align-items: center; justify-content: center; }
 .notes.auto { opacity: 0.6; font-weight: 500; }

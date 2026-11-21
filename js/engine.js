@@ -1,19 +1,20 @@
 /* 스도쿠 엔진: 문제 생성(난수 섞기 + 유일해 검증), 풀이, 힌트.
  * 화면 코드와 분리되어 있어 Web Worker(importScripts)와 브라우저/Node 어디서나 쓸 수 있다.
  *
- * 격자 크기 N = 2..12. 상자(box)는 가로x세로가 N을 나누는 모양을 쓴다.
- * 소수(2,3,5,7,11)는 직사각형 상자를 만들 수 없어 "행/열만 겹치지 않는" 라틴 방진 스도쿠가 된다.
+ * 격자 크기 N = 2..16. 상자(box)는 가로x세로가 N을 나누는 모양을 쓴다.
+ * 소수(2,3,5,7,11,13)는 직사각형 상자를 만들 수 없어 "행/열만 겹치지 않는" 라틴 방진 스도쿠가 된다.
  */
 (function (root) {
   'use strict';
 
   // [상자 세로 칸 수, 상자 가로 칸 수]
   const BOX = { 2: [1, 2], 3: [1, 3], 4: [2, 2], 5: [1, 5], 6: [2, 3], 7: [1, 7],
-                8: [2, 4], 9: [3, 3], 10: [2, 5], 11: [1, 11], 12: [3, 4] };
+                8: [2, 4], 9: [3, 3], 10: [2, 5], 11: [1, 11], 12: [3, 4],
+                13: [1, 13], 14: [2, 7], 15: [3, 5], 16: [4, 4] };
 
-  const sym = (v) => (v <= 9 ? String(v) : 'ABC'[v - 10]);
-  // 숫자 읽는 소리에 맞춘 조사: 1(일)이, 2(이)가, 3(삼)이 … A(에이)가
-  const IGA = { 1: '이', 2: '가', 3: '이', 4: '가', 5: '가', 6: '이', 7: '이', 8: '이', 9: '가', 10: '가', 11: '가', 12: '가' };
+  const sym = (v) => (v <= 9 ? String(v) : 'ABCDEFG'[v - 10]);   // 10~16 = A~G
+  // 숫자 읽는 소리에 맞춘 조사: 1(일)이, 2(이)가, 3(삼)이 … A(에이)·B·C·D·E·F(에프)·G(지)가
+  const IGA = { 1: '이', 2: '가', 3: '이', 4: '가', 5: '가', 6: '이', 7: '이', 8: '이', 9: '가', 10: '가', 11: '가', 12: '가', 13: '가', 14: '가', 15: '가', 16: '가' };
   const iga = (v) => sym(v) + IGA[v];
   const range = (n) => Array.from({ length: n }, (_, i) => i);
   const pc = (x) => { let c = 0; while (x) { x &= x - 1; c++; } return c; };
@@ -59,8 +60,25 @@
     const peers = sets.map((s) => Int16Array.from(s));
     const unitsOf = range(N * N).map(() => []);
     units.forEach((u, ui) => u.cells.forEach((c) => unitsOf[c].push(ui)));
-    return (GEO[N] = { N, br, bc, hasBox, units, peers, unitsOf });
+    // 칸 → 가로줄·세로줄·상자 번호 (비트마스크 풀이용)
+    const rowOf = Int16Array.from(range(N * N), (i) => Math.floor(i / N));
+    const colOf = Int16Array.from(range(N * N), (i) => i % N);
+    const boxOf = Int16Array.from(range(N * N), (i) => (hasBox ? Math.floor(rowOf[i] / br) * (N / bc) + Math.floor(colOf[i] / bc) : 0));
+    return (GEO[N] = { N, br, bc, hasBox, units, peers, unitsOf, rowOf, colOf, boxOf });
   }
+
+  /* 비트마스크 상태: 가로줄·세로줄·상자마다 이미 쓴 숫자를 비트로 기억 → 칸의 후보를 한 번에 계산 */
+  function maskState(a, g) {
+    const st = { row: new Int32Array(g.N), col: new Int32Array(g.N), box: new Int32Array(g.N) };
+    for (let i = 0; i < a.length; i++) if (a[i]) toggle(st, g, i, 1 << (a[i] - 1), true);
+    return st;
+  }
+  function toggle(st, g, i, bit, on) {
+    if (on) { st.row[g.rowOf[i]] |= bit; st.col[g.colOf[i]] |= bit; if (g.hasBox) st.box[g.boxOf[i]] |= bit; }
+    else { st.row[g.rowOf[i]] &= ~bit; st.col[g.colOf[i]] &= ~bit; if (g.hasBox) st.box[g.boxOf[i]] &= ~bit; }
+  }
+  const candOf = (st, g, i, full) => full & ~(st.row[g.rowOf[i]] | st.col[g.colOf[i]] | (g.hasBox ? st.box[g.boxOf[i]] : 0));
+  const bitVal = (bit) => 32 - Math.clz32(bit);     // 1<<(v-1) → v
 
   function candMask(a, g, i) {
     let m = (1 << g.N) - 1;
@@ -84,26 +102,36 @@
     return sol;
   }
 
-  // ---------- 해의 개수 세기 (MRV 백트래킹) ----------
+  // ---------- 해의 개수 세기 (MRV 백트래킹, 비트마스크) ----------
   function countSolutions(grid, N, limit, maxNodes) {
     const g = geometry(N);
     const a = Int8Array.from(grid);
-    const cells = N * N;
+    const full = (1 << N) - 1;
+    const st = maskState(a, g);
+    const empties = [];
+    for (let i = 0; i < a.length; i++) if (!a[i]) empties.push(i);
+    const E = empties.length;
     let count = 0, nodes = 0, aborted = false;
     function rec() {
       if (aborted) return;
       if (++nodes > maxNodes) { aborted = true; return; }
       let best = -1, bm = 0, bcnt = 99;
-      for (let i = 0; i < cells; i++) {
+      for (let e = 0; e < E; e++) {
+        const i = empties[e];
         if (a[i]) continue;
-        const m = candMask(a, g, i);
+        const m = candOf(st, g, i, full);
+        if (!m) return;
         const c = pc(m);
-        if (c === 0) return;
         if (c < bcnt) { bcnt = c; best = i; bm = m; if (c === 1) break; }
       }
       if (best < 0) { count++; return; }
-      for (let v = 1; v <= N && count < limit; v++) {
-        if (bm & (1 << (v - 1))) { a[best] = v; rec(); a[best] = 0; if (aborted) return; }
+      let m = bm;
+      while (m && count < limit) {
+        const bit = m & -m; m ^= bit;
+        a[best] = bitVal(bit); toggle(st, g, best, bit, true);
+        rec();
+        toggle(st, g, best, bit, false); a[best] = 0;
+        if (aborted) return;
       }
     }
     rec();
@@ -114,24 +142,31 @@
   function logicSolve(grid, N, allowHidden) {
     const g = geometry(N);
     const a = Int8Array.from(grid);
+    const full = (1 << N) - 1;
+    const st = maskState(a, g);
     const cells = N * N;
+    const set = (i, bit) => { a[i] = bitVal(bit); toggle(st, g, i, bit, true); };
     for (;;) {
       let placed = false;
       for (let i = 0; i < cells; i++) {
         if (a[i]) continue;
-        const m = candMask(a, g, i);
-        if (m && (m & (m - 1)) === 0) { a[i] = Math.log2(m) + 1; placed = true; }
+        const m = candOf(st, g, i, full);
+        if (!m) return { solved: false, grid: a };          // 모순
+        if ((m & (m - 1)) === 0) { set(i, m); placed = true; }
       }
       if (placed) continue;
       if (allowHidden) {
         for (const u of g.units) {
-          for (let v = 1; v <= N; v++) {
-            if (u.cells.some((c) => a[c] === v)) continue;
-            let only = -1, n = 0;
-            for (const c of u.cells) {
-              if (!a[c] && (candMask(a, g, c) & (1 << (v - 1)))) { only = c; n++; if (n > 1) break; }
-            }
-            if (n === 1) { a[only] = v; placed = true; }
+          let once = 0, twice = 0, used = 0;
+          for (const c of u.cells) {
+            if (a[c]) { used |= 1 << (a[c] - 1); continue; }
+            const m = candOf(st, g, c, full);
+            twice |= once & m; once |= m;
+          }
+          let hid = once & ~twice & ~used;                     // 이 줄에서 한 칸에만 들어갈 수 있는 숫자
+          while (hid) {
+            const bit = hid & -hid; hid ^= bit;
+            for (const c of u.cells) if (!a[c] && (candOf(st, g, c, full) & bit)) { set(c, bit); placed = true; break; }
           }
         }
       }
@@ -146,21 +181,24 @@
   /* easy  : "하나만 남은 칸"만으로 풀림
    * medium: 위 + "유일한 자리"로 풀림
    * hard  : 유일해만 보장(더 깊은 추론이나 가정이 필요할 수 있음) */
-  function generate(N, diff) {
+  function generate(N, diff, budgetMs) {
+    const t0 = Date.now();
+    const budget = budgetMs || 2500;      // 느린 기기 대비: 시간이 다 되면 빈칸을 그만 만든다(그래도 유일해)
     const sol = makeSolution(N);
     const cells = N * N;
     const target = Math.max(1, Math.round(cells * BLANK_FRACTION[diff]));
     const grid = Int8Array.from(sol);
     const order = shuffle(range(cells));
-    const nodeLimit = N >= 10 ? 30000 : 8000;
+    const nodeLimit = N >= 13 ? 40000 : N >= 10 ? 30000 : 8000;
     let removed = 0;
     for (const i of order) {
-      if (removed >= target) break;
+      if (removed >= target || Date.now() - t0 > budget) break;
       const keep = grid[i];
       grid[i] = 0;
       let ok;
       if (diff === 'easy') ok = logicSolve(grid, N, false).solved;
       else if (diff === 'medium') ok = logicSolve(grid, N, true).solved;
+      else if (logicSolve(grid, N, true).solved) ok = true;          // 쉬운 기법으로 풀리면 유일해가 확실 → 비싼 탐색 생략
       else { const r = countSolutions(grid, N, 2, nodeLimit); ok = !r.aborted && r.count === 1; }
       if (ok) removed++; else grid[i] = keep;
     }
