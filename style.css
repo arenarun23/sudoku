@@ -132,7 +132,8 @@ body[data-screen="game"] main { max-width: 1240px; padding-bottom: 16px; }
 .lv-btn.saved { border-color: var(--accent); border-style: dashed; }
 @media (max-width: 520px) {
   .level-row { grid-template-columns: repeat(3, 1fr); }
-  .lv-name { grid-column: 1 / -1; flex-direction: row; align-items: baseline; gap: 10px; }
+  /* 좁은 화면: 크기 이름을 버튼 줄 위에 한 줄로, 왼쪽(버튼·묶음 제목과 같은 선)에 맞춘다 */
+  .lv-name { grid-column: 1 / -1; flex-direction: row; justify-content: flex-start; align-items: baseline; gap: 10px; padding: 4px 0 0; text-align: left; }
 }
 
 /* ---------- 게임: 기기 화면을 꽉 채우는 놀이 화면(레이싱 게임처럼) ----------
